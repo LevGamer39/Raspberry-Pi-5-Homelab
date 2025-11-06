@@ -1,0 +1,111 @@
+networks:
+  media:
+    name: media
+
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /srv/containers/configs/sonarr:/config
+      - /srv/mediahub/media:/media
+      - /srv/mediahub/downloads:/downloads
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    depends_on:
+      - qbittorrent
+      - jackett
+    networks:
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8989"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - WEBUI_PORT=8068
+    volumes:
+      - /srv/containers/configs/qbittorrent:/config
+      - /srv/mediahub/media:/media
+      - /srv/mediahub/downloads:/downloads
+    ports:
+      - 6881:6881
+      - 6881:6881/udp
+      - 8068:8068
+    restart: unless-stopped
+    networks:
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8068"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /srv/containers/configs/jackett:/config
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+    networks:
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9117"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /srv/containers/configs/jellyfin:/config
+      - /srv/mediahub/media:/media
+      - /srv/mediahub/downloads:/downloads
+    ports:
+      - 8096:8096
+    restart: unless-stopped
+    networks:
+      - media
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  homer:
+    image: b4bz/homer
+    container_name: homer
+    user: ${PUID}:${PGID}
+    environment:
+      - INIT_ASSETS=1
+    volumes:
+      - /srv/containers/configs/homer/assets:/www/assets
+      - /srv/containers/configs/homer:/www/config.yml
+    ports:
+      - 8080:8080
+    restart: unless-stopped
+    networks:
+      - media

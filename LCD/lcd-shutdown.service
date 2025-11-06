@@ -1,0 +1,14 @@
+[Unit]
+Description=LCD shutdown message
+DefaultDependencies=no
+Before=poweroff.target halt.target
+Conflicts=reboot.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/lcdmonitor
+ExecStart=/usr/bin/python3 /opt/lcdmonitor/shutdown_lcd.py poweroff
+TimeoutSec=5
+
+[Install]
+WantedBy=poweroff.target halt.target
