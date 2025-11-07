@@ -101,10 +101,10 @@ install_packages(){
 setup_config(){
     cd /boot/
     mv config.txt config.txt.back
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/Config/config.txt" -o config.txt
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Config/config.txt" -o config.txt
     cd /etc/
     rm -rf sudoers
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/Config/sudoers" -o sudoers
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Config/sudoers" -o sudoers
     timedatectl set-timezone Europe/Kaliningrad
     hwclock -s
     
@@ -137,14 +137,14 @@ add_user(){
 setup_lcd(){
     mkdir -p /opt/lcdmonitor/
     cd /opt/lcdmonitor/
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/shutdown_lcd.py" -o shutdown_lcd.py
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/lcd_monitor.py" -o lcd_monitor.py
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/requirements.txt" -o requirements.txt
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/shutdown_lcd.py" -o shutdown_lcd.py
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd_monitor.py" -o lcd_monitor.py
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/requirements.txt" -o requirements.txt
     pip install -r requirements.txt --break-system-packages
     cd /etc/systemd/system/
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/lcd-shutdown.service" -o lcd-shutdown.service
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/lcd-reboot.service" -o lcd-reboot.service
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/LCD/lcdmonitor.service" -o lcdmonitor.service
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd-shutdown.service" -o lcd-shutdown.service
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd-reboot.service" -o lcd-reboot.service
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcdmonitor.service" -o lcdmonitor.service
 
     systemctl daemon-reload
 
@@ -178,11 +178,11 @@ install_containers(){
     mkdir -p /srv/containers/{backup,compose,configs,backup/backup_repo}
     mkdir -p /srv/mediahub/{downloads,media,media/films}
     cd /srv/containers/backup
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/Scripts/pull.sh" -o pull.sh
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/Scripts/push.sh" -o push.sh
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Scripts/pull.sh" -o pull.sh
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Scripts/push.sh" -o push.sh
     chmod +x ./push.sh ./pull.sh
     cd /srv/containers/compose
-    curl -sL "https://raw.githubusercontent.com/LevGamer39/raspberry-pi-5/main/Scripts/push.sh" -o push.sh
+    curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Scripts/push.sh" -o push.sh
     if command -v docker-compose &>/dev/null; then
         docker-compose up -d
     else
