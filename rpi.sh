@@ -322,10 +322,10 @@ setup_sudoers() {
 # Функция: Установка Docker для Debian
 install_docker_debian() {
     log_message "Установка Docker для Debian"
-    
+
     # Удаляем старые версии
     apt remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
-    
+
     # Устанавливаем зависимости
     apt update
     apt install -y \
@@ -333,20 +333,34 @@ install_docker_debian() {
         curl \
         gnupg \
         lsb-release
-    
+
     # Добавляем официальный GPG ключ Docker
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    
+
     # Добавляем репозиторий
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
       $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-    
+
     # Устанавливаем Docker
     apt update
     apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-    
+
+    # Добавляем пользователя в группу docker
+    usermod -aG docker "$USERNAME"
+
+    # Фикс для совместимости с Portainer
+    mkdir -p /etc/systemd/system/docker.service.d
+    cat > /etc/systemd/system/docker.service.d/override.conf << 'EOF'
+[Service]
+Environment=DOCKER_MIN_API_VERSION=1.24
+EOF
+
+    # Перезапускаем Docker
+    systemctl daemon-reload
+    systemctl restart docker
+
     echo -e "${GREEN}✅ Docker установлен${NC}"
 }
 
