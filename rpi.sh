@@ -307,7 +307,7 @@ setup_sudoers() {
             cp /etc/sudoers /etc/sudoers.back
         fi
         
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Config/sudoers" -o /etc/sudoers
+        curl -sL "https://github.com/LevGamer39/Raspberry-Pi-5-Homelab/raw/refs/heads/main/Config/sudoers" -o /etc/sudoers
         chmod 440 /etc/sudoers
         echo -e "${GREEN}✅ sudoers настроен для Arch${NC}"
     else
@@ -525,8 +525,8 @@ setup_backup_scripts() {
         cd /srv/containers/backup
         
         echo -e "${YELLOW}⏳ Загрузка скриптов бэкапа...${NC}"
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Scripts/push.sh" -o push.sh
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/Scripts/pull.sh" -o pull.sh
+        curl -sL "https://github.com/LevGamer39/Raspberry-Pi-5-Homelab/raw/refs/heads/main/Scripts/push.sh" -o push.sh
+        curl -sL "https://github.com/LevGamer39/Raspberry-Pi-5-Homelab/raw/refs/heads/main/Scripts/pull.sh" -o pull.sh
         
         chmod +x push.sh pull.sh
         
@@ -555,9 +555,9 @@ setup_lcd() {
         cd /opt/lcdmonitor/
         
         echo -e "${YELLOW}⏳ Загрузка файлов LCD...${NC}"
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/shutdown_lcd.py" -o shutdown_lcd.py
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd_monitor.py" -o lcd_monitor.py
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/requirements.txt" -o requirements.txt
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/shutdown_lcd.py" -o shutdown_lcd.py
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/lcd_monitor.py" -o lcd_monitor.py
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/requirements.txt" -o requirements.txt
         
         echo -e "${YELLOW}⏳ Установка зависимостей Python...${NC}"
         if [ "$OS_TYPE" = "arch" ]; then
@@ -568,9 +568,9 @@ setup_lcd() {
         
         echo -e "${YELLOW}⏳ Настройка сервисов...${NC}"
         cd /etc/systemd/system/
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd-shutdown.service" -o lcd-shutdown.service
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcd-reboot.service" -o lcd-reboot.service
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/LCD-Monitor/main/LCD/lcdmonitor.service" -o lcdmonitor.service
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/lcd-shutdown.service" -o lcd-shutdown.service
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/lcd-reboot.service" -o lcd-reboot.service
+        curl -sL "https://github.com/LevGamer39/LCD-Monitor/raw/refs/heads/main/lcdmonitor.service" -o lcdmonitor.service
 
         systemctl daemon-reload
         systemctl enable lcd-shutdown.service
@@ -648,7 +648,7 @@ ENV
         # Скачиваем docker-compose.yml с GitHub
         echo -e "${YELLOW}⏳ Загрузка docker-compose.yml...${NC}"
         cd /srv/containers/compose
-        curl -sL "https://raw.githubusercontent.com/LevGamer39/Raspberry-Pi-5-Homelab/main/docker-compose.yml" -o docker-compose.yml
+        curl -sL "https://github.com/LevGamer39/Raspberry-Pi-5-Homelab/raw/refs/heads/main/Containers/docker-compose.yml" -o docker-compose.yml
         
         # Настройка скриптов бэкапа
         setup_backup_scripts
