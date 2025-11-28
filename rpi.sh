@@ -277,6 +277,8 @@ add_fan_config() {
     cat >> "${config_file}.tmp" << EOF
 
 # Fan control settings
+kernel=kernel8.img
+dtparam=pciex1_gen=3
 dtparam=fan_temp0=40000
 dtparam=fan_temp0_hyst=5000
 dtparam=fan_temp0_speed=50
