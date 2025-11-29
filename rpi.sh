@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Конфигурационные переменные
 lcd_services=false
 menager_name=""
 USERNAME=""
@@ -13,20 +12,19 @@ BACKUP_REPO_NAME=""
 BACKUP_BRANCH="backups"
 BACKUP_GITHUB_TOKEN=""
 
-# Цвета для вывода
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Флаги установки
 INSTALL_PACKAGES=false
 INSTALL_LCD=false
 INSTALL_DOTNET=false
 INSTALL_PORTAINER=false
 INSTALL_CONTAINERS=false
 INSTALL_NGINX=false
+INSTALL_STEAMCMD=false
 SETUP_CONFIG=false
 SETUP_BACKUP=false
 
@@ -91,10 +89,7 @@ setup_git_config() {
             
             echo -e "${GREEN}✅ Git настроен: $git_name <$git_email>${NC}"
         else
-            # Устанавливаем значения по умолчанию
-            sudo -u "$USERNAME" git config --global user.name "YourName"
-            sudo -u "$USERNAME" git config --global user.email "your@email.com"
-            echo -e "${YELLOW}⚠️  Установлены значения Git по умолчанию${NC}"
+            echo -e "${YELLOW}⚠️ Git не настроен${NC}"
         fi
     fi
 }
@@ -105,7 +100,6 @@ ask_all_questions() {
     echo -e "${BLUE}         Настройка установки${NC}"
     echo -e "${BLUE}=========================================${NC}"
     
-    # Вопрос о создании пользователя
     log_message "Настройка пользователя"
     
     if confirm_action "Создать нового пользователя?" "y"; then
@@ -159,12 +153,10 @@ ask_all_questions() {
         CREATE_USER=false
         echo -e "${YELLOW}⚠️  Создание пользователя пропущено${NC}"
         
-        # Используем текущего пользователя
         USERNAME=$(whoami)
         echo -e "${GREEN}✅ Будет использован текущий пользователь: $USERNAME${NC}"
     fi
 
-    # Вопросы сервисов
     log_message "Настройка сервисов"
     
     if confirm_action "Включить LCD сервис?" "n"; then
@@ -193,7 +185,6 @@ ask_all_questions() {
         echo -e "${GREEN}✅ Выбран менеджер: $menager_name${NC}"
     fi
 
-    # Вопросы бэкапа
     log_message "Настройка бэкапа конфигов"
     
     if confirm_action "Настроить автоматический бэкап конфигов в GitHub?" "n"; then
@@ -214,7 +205,6 @@ ask_all_questions() {
         echo -e "${GREEN}✅ Бэкап настроен${NC}"
     fi
 
-    # Основные компоненты
     echo -e "${BLUE}-----------------------------------------${NC}"
     log_message "Выбор компонентов для установки"
     
@@ -238,6 +228,10 @@ ask_all_questions() {
         INSTALL_CONTAINERS=true
     fi
     
+    if confirm_action "Установить SteamCMD и Box64 (для игровых серверов)?" "n"; then
+        INSTALL_STEAMCMD=true
+    fi
+
     if confirm_action "Настроить nginx с SSL?" "n"; then
         INSTALL_NGINX=true
     fi
@@ -267,13 +261,10 @@ add_fan_config() {
     
     log_message "Добавление настроек вентилятора в $config_file"
     
-    # Создаем бэкап
     cp "$config_file" "${config_file}.backup"
     
-    # Удаляем старые настройки вентилятора если есть
     grep -v "dtparam=fan_temp" "$config_file" > "${config_file}.tmp"
     
-    # Добавляем новые настройки
     cat >> "${config_file}.tmp" << EOF
 dtparam=i2c_arm=on
 kernel=kernel8.img
@@ -302,7 +293,6 @@ setup_sudoers() {
     log_message "Настройка sudoers"
     
     if [ "$OS_TYPE" = "arch" ]; then
-        # Для Arch используем наш файл
         if [ -f "/etc/sudoers.back" ]; then
             echo -e "${YELLOW}⚠️  Бэкап sudoers уже существует${NC}"
         else
@@ -313,7 +303,6 @@ setup_sudoers() {
         chmod 440 /etc/sudoers
         echo -e "${GREEN}✅ sudoers настроен для Arch${NC}"
     else
-        # Для Debian только добавляем пользователя в sudo
         if [ "$CREATE_USER" = true ] && [ "$USERNAME" != "root" ]; then
             usermod -aG sudo "$USERNAME"
             echo -e "${GREEN}✅ Пользователь $USERNAME добавлен в группу sudo${NC}"
@@ -325,10 +314,8 @@ setup_sudoers() {
 install_docker_debian() {
     log_message "Установка Docker для Debian"
 
-    # Удаляем старые версии
     apt remove -y docker docker-engine docker.io containerd runc 2>/dev/null || true
 
-    # Устанавливаем зависимости
     apt update
     apt install -y \
         ca-certificates \
@@ -336,30 +323,24 @@ install_docker_debian() {
         gnupg \
         lsb-release
 
-    # Добавляем официальный GPG ключ Docker
     mkdir -p /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 
-    # Добавляем репозиторий
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
       $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    # Устанавливаем Docker
     apt update
     apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-    # Добавляем пользователя в группу docker
     usermod -aG docker "$USERNAME"
 
-    # Фикс для совместимости с Portainer
     mkdir -p /etc/systemd/system/docker.service.d
     cat > /etc/systemd/system/docker.service.d/override.conf << 'EOF'
 [Service]
 Environment=DOCKER_MIN_API_VERSION=1.24
 EOF
 
-    # Перезапускаем Docker
     systemctl daemon-reload
     systemctl restart docker
 
@@ -374,12 +355,11 @@ install_packages_arch() {
     pacman -Syu --noconfirm
     
     echo -e "${YELLOW}⏳ Установка базовых пакетов...${NC}"
-    pacman -S --noconfirm docker git python python-pip flashrom i2c-tools sudo nginx rsync base-devel docker-compose
+    pacman -S --noconfirm docker git python python-pip flashrom i2c-tools sudo nginx rsync base-devel docker-compose wget
     
     systemctl start docker
-    systemctl enable docker
+    systemctl enable --now docker
     
-    # Установка AUR менеджера
     if [ "$menager_name" = "yay" ]; then
         log_message "Установка yay"
         git clone https://aur.archlinux.org/yay.git /tmp/yay
@@ -405,16 +385,14 @@ install_packages_debian() {
     apt update && apt upgrade -y
     
     echo -e "${YELLOW}⏳ Установка базовых пакетов...${NC}"
-    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential
+    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential wget
     
-    # Установка Docker
     install_docker_debian
     
-    # Установка docker-compose
     pip3 install docker-compose
     
     systemctl start docker
-    systemctl enable docker
+    systemctl enable --now docker
 }
 
 # Функция: Установка базовых пакетов
@@ -440,28 +418,22 @@ install_packages() {
 setup_locales() {
     log_message "Настройка локалей"
     
-    # Английская локаль как основная, русская как дополнительная
     if [ "$OS_TYPE" = "arch" ]; then
-        # Включаем английскую и русскую локали
         sed -i 's/^#\(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
         sed -i 's/^#\(ru_RU.UTF-8 UTF-8\)/\1/' /etc/locale.gen
         locale-gen
         echo "LANG=en_US.UTF-8" > /etc/locale.conf
         echo "LC_ALL=en_US.UTF-8" >> /etc/locale.conf
     elif [ "$OS_TYPE" = "debian" ]; then
-        # Устанавливаем пакет локалей
         apt install -y locales
         
-        # Включаем английскую и русскую локали
         sed -i 's/^# \(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen
         sed -i 's/^# \(ru_RU.UTF-8 UTF-8\)/\1/' /etc/locale.gen
         locale-gen
         
-        # Устанавливаем английскую локаль по умолчанию
         update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
     fi
     
-    # Экспортируем переменные для текущей сессии
     export LANG=en_US.UTF-8
     export LC_ALL=en_US.UTF-8
     export LANGUAGE=en_US:en
@@ -474,10 +446,8 @@ setup_config() {
     if [ "$SETUP_CONFIG" = true ]; then
         log_message "Настройка системной конфигурации"
         
-        # Настройка локалей
         setup_locales
         
-        # Настройка config.txt с вентилятором
         local config_path=$(get_config_path)
         if [ -n "$config_path" ]; then
             if confirm_action "Добавить настройки управления вентилятором в config.txt?" "y"; then
@@ -485,14 +455,11 @@ setup_config() {
             fi
         fi
         
-        # Настройка sudoers
         setup_sudoers
         
-        # Настройка времени
         timedatectl set-timezone Europe/Kaliningrad
         hwclock -s
         
-        # Настройка Git
         setup_git_config
 
         echo -e "${GREEN}✅ Конфиги настроены${NC}"
@@ -537,7 +504,6 @@ setup_backup_scripts() {
     if [ "$SETUP_BACKUP" = true ]; then
         log_message "Настройка скриптов бэкапа"
         
-        # Скачиваем оригинальные скрипты с GitHub
         cd /srv/containers/backup
         
         echo -e "${YELLOW}⏳ Загрузка скриптов бэкапа...${NC}"
@@ -546,7 +512,6 @@ setup_backup_scripts() {
         
         chmod +x push.sh pull.sh
         
-        # Сохраняем конфигурацию если указана
         if [ -n "$BACKUP_REPO_OWNER" ] && [ -n "$BACKUP_REPO_NAME" ]; then
             mkdir -p /srv/containers/backup/backup_repo
             cat > /srv/containers/backup/backup_repo/backup_config << CONFIG
@@ -609,11 +574,9 @@ install_dotnet() {
         echo -e "${YELLOW}⏳ Установка .NET...${NC}"
         ./dotnet-install.sh --version latest
         
-        # Добавление в PATH
         export DOTNET_ROOT=$HOME/.dotnet
         export PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
         
-        # Постоянное добавление в PATH
         if [ "$CREATE_USER" = true ]; then
             echo "export DOTNET_ROOT=\$HOME/.dotnet" >> /home/$USERNAME/.bashrc
             echo "export PATH=\$PATH:\$DOTNET_ROOT:\$DOTNET_ROOT/tools" >> /home/$USERNAME/.bashrc
@@ -642,6 +605,36 @@ install_portainer() {
     fi
 }
 
+# Функция: Установка SteamCMD и Box64
+install_steam_env() {
+    if [ "$INSTALL_STEAMCMD" = true ]; then
+        log_message "Установка Box64 и SteamCMD"
+        
+        echo -e "${YELLOW}⏳ Установка Box64 (эмуляция x86_64)...${NC}"
+        if [ "$OS_TYPE" = "debian" ]; then
+            wget https://ryanfortner.github.io/box64-debs/box64.list -O /etc/apt/sources.list.d/box64.list
+            wget -qO- https://ryanfortner.github.io/box64-debs/KEY.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/box64-debs-archive-keyring.gpg
+            apt update
+            apt install -y box64
+        elif [ "$OS_TYPE" = "arch" ]; then
+             log_message "Сборка Box64 через AUR..."
+             sudo -u "$USERNAME" $menager_name -S --noconfirm box64
+        fi
+        
+        echo -e "${YELLOW}⏳ Настройка структуры серверов...${NC}"
+        mkdir -p /srv/servers/steamcmd
+        
+        echo -e "${YELLOW}⏳ Загрузка SteamCMD...${NC}"
+        cd /srv/servers/steamcmd
+        curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf -
+        
+        chown -R "$USERNAME:$USERNAME" /srv/servers
+        
+        echo -e "${GREEN}✅ SteamCMD установлен в /srv/servers/steamcmd${NC}"
+        echo -e "${GREEN}✅ Box64 установлен${NC}"
+    fi
+}
+
 # Функция: Установка контейнеров
 install_containers() {
     if [ "$INSTALL_CONTAINERS" = true ]; then
@@ -651,26 +644,20 @@ install_containers() {
         mkdir -p /srv/containers/{backup,compose,configs,backup/backup_repo}
         mkdir -p /srv/mediahub/{downloads,media,media/films}
         
-        # Создаем .env файл
-        local user_id=$(id -u "$USERNAME")
-        local group_id=$(id -g "$USERNAME")
         
         cat > /srv/containers/compose/.env << ENV
-PUID=$user_id
-PGID=$group_id
+PUID=1000
+PGID=1000
 TZ=Europe/Kaliningrad
 ENV
         
-        # Скачиваем docker-compose.yml с GitHub
         echo -e "${YELLOW}⏳ Загрузка docker-compose.yml...${NC}"
         cd /srv/containers/compose
         curl -sL "https://github.com/LevGamer39/Raspberry-Pi-5-Homelab/raw/refs/heads/main/Containers/docker-compose.yml" -o docker-compose.yml
         
-        # Настройка скриптов бэкапа
         setup_backup_scripts
         
-        # Настройка прав
-        chown -R $USERNAME:$USERNAME /srv/containers /srv/mediahub
+        chown -R 1000:1000 /srv/containers /srv/mediahub
         
         echo -e "${GREEN}✅ Docker контейнеры настроены${NC}"
         
@@ -691,18 +678,89 @@ install_nginx() {
     if [ "$INSTALL_NGINX" = true ]; then
         log_message "Настройка nginx"
         
-        echo -e "${YELLOW}⏳ Генерация SSL сертификата...${NC}"
         mkdir -p /etc/nginx/ssl
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout /etc/nginx/ssl/selfsigned.key \
-            -out /etc/nginx/ssl/selfsigned.crt \
-            -subj "/C=RU/ST=Kaliningrad/L=Kaliningrad/O=LevGamer39/OU=Dev/CN=raspberry-pi-5"
-        
-        # Запуск nginx
-        systemctl enable nginx
-        systemctl start nginx
-        
-        echo -e "${GREEN}✅ nginx настроен с самоподписанным SSL сертификатом${NC}"
+        if [ ! -f /etc/nginx/ssl/selfsigned.crt ]; then
+            openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                -keyout /etc/nginx/ssl/selfsigned.key \
+                -out /etc/nginx/ssl/selfsigned.crt \
+                -subj "/C=RU/ST=KLD/L=KLD/O=Home/OU=Dev/CN=raspberry-pi-5"
+        fi
+
+        CURRENT_IP=$(hostname -I | awk '{print $1}')
+        echo -e "${GREEN}✅ IP Detected: $CURRENT_IP${NC}"
+
+        cat > /etc/nginx/conf.d/homer-proxy.conf	 <<EOF
+map \$http_upgrade \$connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name raspberry-pi-5 $CURRENT_IP;
+    
+    ssl_certificate     /etc/nginx/ssl/selfsigned.crt;
+    ssl_certificate_key /etc/nginx/ssl/selfsigned.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers on;
+    
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    
+    proxy_http_version   1.1;
+    proxy_set_header     Host              \$host;
+    proxy_set_header     X-Real-IP         \$remote_addr;
+    proxy_set_header     X-Forwarded-For   \$proxy_add_x_forwarded_for;
+    proxy_set_header     X-Forwarded-Proto \$scheme;
+    proxy_set_header     Upgrade           \$http_upgrade;
+    proxy_set_header     Connection        \$connection_upgrade;
+
+    add_header Access-Control-Allow-Origin  * always;
+
+    # HOMER
+    location / {
+        proxy_pass http://$CURRENT_IP:8080/;
+    }
+    
+    # PORTAINER (Installed separately)
+    location /portainer/ {
+        proxy_pass       https://$CURRENT_IP:9443/;
+        proxy_ssl_verify off;
+    }
+    
+    # SONARR
+    location /sonarr/ {
+        proxy_pass http://$CURRENT_IP:8989/sonarr/;
+    }
+
+    # QBITTORRENT
+    location /qbittorrent/ {
+        proxy_pass http://$CURRENT_IP:8068/;
+        proxy_cookie_path / /qbittorrent/;
+    }
+
+    # JACKETT
+    location /jackett/ {
+        proxy_pass http://$CURRENT_IP:9117/jackett/;
+    }
+
+    # JELLYFIN
+    location /jellyfin/ {
+        proxy_pass http://$CURRENT_IP:8096/;
+    } 
+}
+
+server {
+    listen      80;
+    server_name raspberry-pi-5 $CURRENT_IP;
+    return      301 https://\$host\$request_uri;
+}
+EOF
+
+        nginx -t && systemctl restart nginx && systemctl enable nginx
     fi
 }
 
@@ -718,6 +776,7 @@ show_summary() {
     echo -e "📦 Базовые пакеты: $INSTALL_PACKAGES"
     echo -e "⚙️  Конфиги системы: $SETUP_CONFIG"
     echo -e "🔧 .NET SDK: $INSTALL_DOTNET"
+    echo -e "🎮 SteamCMD & Box64: $INSTALL_STEAMCMD"
     echo -e "🐳 Portainer: $INSTALL_PORTAINER"
     echo -e "📦 Контейнеры: $INSTALL_CONTAINERS"
     echo -e "🌐 nginx: $INSTALL_NGINX"
@@ -736,6 +795,9 @@ show_summary() {
     if [ "$SETUP_BACKUP" = true ]; then
         echo -e "${BLUE}💾 Скрипты бэкапа: /srv/containers/backup/{push.sh,pull.sh}${NC}"
     fi
+    if [ "$INSTALL_STEAMCMD" = true ]; then
+        echo -e "${BLUE}🎮 Сервера: /srv/servers/steamcmd${NC}"
+    fi
     
     echo -e "${YELLOW}⚠️  Рекомендуется перезагрузить систему!${NC}"
     echo -e "${YELLOW}🔄 Команда: reboot${NC}"
@@ -747,26 +809,21 @@ main() {
     echo -e "${BLUE}    Raspberry Pi Homelab Installer${NC}"
     echo -e "${BLUE}=========================================${NC}"
     
-    # Проверка прав root
     if [ "$EUID" -ne 0 ]; then
         echo -e "${RED}❌ Запустите скрипт от root${NC}"
         exit 1
     fi
     
-    # Определение ОС
     detect_os
     
-    # Все вопросы в начале
     ask_all_questions
     
-    # Подтверждение начала установки
     echo -e "${BLUE}-----------------------------------------${NC}"
     if ! confirm_action "Начать установку выбранных компонентов?" "y"; then
         echo -e "${YELLOW}⚠️  Установка отменена${NC}"
         exit 0
     fi
     
-    # Установка компонентов
     echo -e "${BLUE}=========================================${NC}"
     echo -e "${BLUE}           Начало установки${NC}"
     echo -e "${BLUE}=========================================${NC}"
@@ -777,12 +834,11 @@ main() {
     setup_lcd
     install_dotnet
     install_portainer
+    install_steam_env
     install_containers
     install_nginx
     
-    # Итоги
     show_summary
 }
 
-# Запуск главной функции
 main "$@"
