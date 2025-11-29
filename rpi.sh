@@ -385,11 +385,11 @@ install_packages_debian() {
     apt update && apt upgrade -y
     
     echo -e "${YELLOW}⏳ Установка базовых пакетов...${NC}"
-    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential wget
+    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential wget util-linux-extra
     
     install_docker_debian
     
-    pip3 install docker-compose
+    pip3 install docker-compose --break-system-packages
     
     systemctl start docker
     systemctl enable --now docker
@@ -544,7 +544,7 @@ setup_lcd() {
         if [ "$OS_TYPE" = "arch" ]; then
             pip install -r requirements.txt --break-system-packages
         else
-            pip3 install -r requirements.txt
+            pip3 install -r requirements.txt --break-system-packages
         fi
         
         echo -e "${YELLOW}⏳ Настройка сервисов...${NC}"
