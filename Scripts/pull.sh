@@ -3,13 +3,11 @@
 CONFIG_DIR="/srv/containers/configs"
 REPO_DIR="/srv/containers/backup/backup_repo"
 
-# Функция для вывода ошибки
 error_exit() {
     echo "Ошибка: $1" >&2
     exit 1
 }
 
-# Функция подтверждения действия
 confirm_action() {
     local message=$1
     local default=${2:-"n"}
@@ -33,25 +31,22 @@ confirm_action() {
     fi
 }
 
-# Проверка зависимостей
 for cmd in git rsync; do
     if ! command -v $cmd &> /dev/null; then
         error_exit "Необходима установка $cmd"
     fi
 done
 
-# Проверка существования конфигурации
 if [ -f "$REPO_DIR/backup_config" ]; then
     echo "Найдена сохраненная конфигурация бэкапа:"
     source "$REPO_DIR/backup_config"
     echo "Репозиторий: $REPO_OWNER/$REPO_NAME"
     echo "Ветка: $BRANCH"
-    echo "Токен: ${GITHUB_TOKEN:0:4}******"  # Показываем только первые 4 символа токена
+    echo "Токен: ${GITHUB_TOKEN:0:4}******"
     
     if confirm_action "Использовать сохраненную конфигурацию?" "y"; then
         USE_SAVED=true
     else
-        # Удаляем сохраненную конфигурацию если не хотим использовать
         rm -f "$REPO_DIR/backup_config"
     fi
 fi
@@ -59,20 +54,23 @@ fi
 if [ "$USE_SAVED" != "true" ]; then
     echo "Настройка репозитория для восстановления:"
     
-    # Запрос данных репозитория
-    read -p "Введите владельца репозитория (например: LevGamer39): " REPO_OWNER
-    read -p "Введите название репозитория (например: raspberry-pi-5): " REPO_NAME
-    read -p "Введите ветку для бэкапов (по умолчанию backups): " BRANCH_INPUT
-    BRANCH=${BRANCH_INPUT:-"backups"}
+    read -p "Введите владельца репозитория: " REPO_OWNER
+    read -p "Введите название репозитория: " REPO_NAME
     
-    if confirm_action "Репозиторий приватный? (нужен токен)" "n"; then
+    read -p "Введите ветку для бэкапов: " BRANCH_INPUT
+    BRANCH=${BRANCH_INPUT}
+
+    if [ -z "$BRANCH" ]; then
+        error_exit "Ветка не может быть пустой"
+    fi
+    
+    if confirm_action "Репозиторий приватный? (нужен токен)" "y"; then
         read -s -p "Введите GitHub токен: " GITHUB_TOKEN
         echo
     else
         GITHUB_TOKEN=""
     fi
     
-    # Сохраняем конфигурацию
     if confirm_action "Сохранить конфигурацию для будущего использования?" "y"; then
         mkdir -p "$REPO_DIR"
         cat > "$REPO_DIR/backup_config" << CONFIG
@@ -97,11 +95,9 @@ fi
 
 echo "Используемый репозиторий: $REPO_OWNER/$REPO_NAME, ветка: $BRANCH"
 
-# Создаем директорию репозитория
 mkdir -p "$REPO_DIR" || error_exit "Не удалось создать директорию $REPO_DIR"
 cd "$REPO_DIR" || error_exit "Не удалось перейти в $REPO_DIR"
 
-# Клонирование или обновление репозитория
 if [ ! -d ".git" ]; then
     echo "Клонирование репозитория..."
     git clone -b "$BRANCH" "$REPO_URL" . || error_exit "Не удалось клонировать репозиторий"
@@ -111,10 +107,8 @@ else
     git pull origin "$BRANCH" || error_exit "Не удалось обновить репозиторий"
 fi
 
-# Создаем целевую директорию
 mkdir -p "$CONFIG_DIR" || error_exit "Не удалось создать директорию $CONFIG_DIR"
 
-# Создаем бэкап текущих конфигов
 BACKUP_DIR="/srv/containers/backup/config_backup_$(date +%Y%m%d_%H%M%S)"
 if confirm_action "Создать бэкап текущих конфигов перед восстановлением?" "y"; then
     echo "Создание бэкапа текущих конфигов..."
@@ -123,7 +117,6 @@ if confirm_action "Создать бэкап текущих конфигов п�
     echo "✅ Бэкап создан: $BACKUP_DIR"
 fi
 
-# Копирование конфигов
 echo "Копирование конфигов..."
 rsync -av --exclude='.git' --exclude='backup_config' ./ "$CONFIG_DIR/" || error_exit "Ошибка при копировании файлов"
 

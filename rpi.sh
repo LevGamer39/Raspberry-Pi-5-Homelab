@@ -12,6 +12,9 @@ BACKUP_REPO_NAME=""
 BACKUP_BRANCH="backups"
 BACKUP_GITHUB_TOKEN=""
 
+DOCKER_USER="mediauser"
+STEAM_USER="steam"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -190,12 +193,11 @@ ask_all_questions() {
     if confirm_action "Настроить автоматический бэкап конфигов в GitHub?" "n"; then
         SETUP_BACKUP=true
         
-        read -p "Введите владельца репозитория (например: LevGamer39): " BACKUP_REPO_OWNER
-        read -p "Введите название репозитория (например: raspberry-pi-5): " BACKUP_REPO_NAME
-        read -p "Введите ветку для бэкапов (по умолчанию backups): " BACKUP_BRANCH
-        BACKUP_BRANCH=${BACKUP_BRANCH:-"backups"}
+        read -p "Введите владельца репозитория: " BACKUP_REPO_OWNER
+        read -p "Введите название репозитория: " BACKUP_REPO_NAME
+        read -p "Введите ветку для бэкапов: " BACKUP_BRANCH
         
-        if confirm_action "Репозиторий приватный? (нужен токен)" "n"; then
+        if confirm_action "Репозиторий приватный? (нужен токен)" "y"; then
             read -s -p "Введите GitHub токен: " BACKUP_GITHUB_TOKEN
             echo
         else
@@ -263,11 +265,11 @@ add_fan_config() {
     
     cp "$config_file" "${config_file}.backup"
     
+	sed -i '/^#dtparam=i2c_arm=on/s/^#//' "$config_file"
+	
     grep -v "dtparam=fan_temp" "$config_file" > "${config_file}.tmp"
     
     cat >> "${config_file}.tmp" << EOF
-dtparam=i2c_arm=on
-kernel=kernel8.img
 dtparam=pciex1_gen=3
 # Fan control settings
 dtparam=fan_temp0=40000
@@ -332,8 +334,6 @@ install_docker_debian() {
 
     apt update
     apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-    usermod -aG docker "$USERNAME"
 
     mkdir -p /etc/systemd/system/docker.service.d
     cat > /etc/systemd/system/docker.service.d/override.conf << 'EOF'
@@ -492,10 +492,37 @@ add_user() {
         if [ "$OS_TYPE" = "debian" ]; then
             usermod -aG sudo "$USERNAME"
         fi
+		
         echo -e "${GREEN}✅ Пользователь $USERNAME добавлен в группы wheel/sudo${NC}"
     else
         echo -e "${YELLOW}⚠️  Создание пользователя пропущено${NC}"
         echo -e "${GREEN}✅ Используется текущий пользователь: $USERNAME${NC}"
+    fi
+}
+
+# Функция: Создание служебных пользователей
+add_service_users() {
+    log_message "Создание служебных пользователей для сервисов"
+    
+    if ! id "$DOCKER_USER" &>/dev/null; then
+        useradd -r -s /usr/sbin/nologin "$DOCKER_USER"
+        echo -e "${GREEN}✅ Служебный пользователь $DOCKER_USER создан${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Служебный пользователь $DOCKER_USER уже существует${NC}"
+    fi
+    
+    if [ "$INSTALL_STEAMCMD" = true ]; then
+        if ! id "$STEAM_USER" &>/dev/null; then
+            useradd -r -s /usr/sbin/nologin "$STEAM_USER"
+            echo -e "${GREEN}✅ Служебный пользователь $STEAM_USER создан${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Служебный пользователь $STEAM_USER уже существует${NC}"
+        fi
+    fi
+    
+    if getent group docker >/dev/null; then
+        usermod -aG docker "$USERNAME"
+        echo -e "${GREEN}✅ Пользователь $USERNAME добавлен в группу docker (для Portainer и управления)${NC}"
     fi
 }
 
@@ -628,7 +655,7 @@ install_steam_env() {
         cd /srv/servers/steamcmd
         curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf -
         
-        chown -R "$USERNAME:$USERNAME" /srv/servers
+        chown -R "$STEAM_USER":"$STEAM_USER" /srv/servers
         
         echo -e "${GREEN}✅ SteamCMD установлен в /srv/servers/steamcmd${NC}"
         echo -e "${GREEN}✅ Box64 установлен${NC}"
@@ -644,10 +671,13 @@ install_containers() {
         mkdir -p /srv/containers/{backup,compose,configs,backup/backup_repo}
         mkdir -p /srv/mediahub/{downloads,media,media/films}
         
+        # Получаем PUID и PGID для служебного пользователя mediauser
+        local PUID=$(id -u "$DOCKER_USER" 2>/dev/null || echo 1000)
+        local PGID=$(id -g "$DOCKER_USER" 2>/dev/null || echo 1000)
         
         cat > /srv/containers/compose/.env << ENV
-PUID=1000
-PGID=1000
+PUID=$PUID
+PGID=$PGID
 TZ=Europe/Kaliningrad
 ENV
         
@@ -657,9 +687,9 @@ ENV
         
         setup_backup_scripts
         
-        chown -R 1000:1000 /srv/containers /srv/mediahub
+        chown -R "$DOCKER_USER":"$DOCKER_USER" /srv/containers /srv/mediahub
         
-        echo -e "${GREEN}✅ Docker контейнеры настроены${NC}"
+        echo -e "${GREEN}✅ Docker контейнеры настроены (PUID=$PUID, PGID=$PGID)${NC}"
         
         if confirm_action "Запустить docker-compose сейчас?" "y"; then
             cd /srv/containers/compose
@@ -770,7 +800,7 @@ show_summary() {
     echo -e "${GREEN}=========================================${NC}"
     echo -e "${GREEN}           Сводка установки${NC}"
     echo -e "${GREEN}=========================================${NC}"
-    echo -e "👤 Пользователь: $USERNAME"
+    echo -e "👤 Основной пользователь: $USERNAME"
     echo -e "👥 Создан новый: $CREATE_USER"
     echo -e "📟 LCD сервис: $INSTALL_LCD"
     echo -e "📦 Базовые пакеты: $INSTALL_PACKAGES"
@@ -784,8 +814,18 @@ show_summary() {
     if [ "$OS_TYPE" = "arch" ]; then
         echo -e "📦 AUR менеджер: $menager_name"
     fi
-    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}-----------------------------------------${NC}"
     
+    # Информация о служебных пользователях
+    if [ -n "$DOCKER_USER" ]; then
+        local PUID=$(id -u "$DOCKER_USER" 2>/dev/null)
+        local PGID=$(id -g "$DOCKER_USER" 2>/dev/null)
+        echo -e "🐳 Пользователь Media/Docker: $DOCKER_USER (UID=$PUID, GID=$PGID)${NC}"
+    fi
+    if [ "$INSTALL_STEAMCMD" = true ]; then
+        echo -e "🎮 Пользователь SteamCMD: $STEAM_USER${NC}"
+    fi
+
     if [ "$INSTALL_PORTAINER" = true ]; then
         echo -e "${BLUE}📊 Portainer: https://localhost:9443${NC}"
     fi
@@ -828,6 +868,7 @@ main() {
     echo -e "${BLUE}           Начало установки${NC}"
     echo -e "${BLUE}=========================================${NC}"
     
+    add_service_users
     install_packages
     add_user
     setup_config

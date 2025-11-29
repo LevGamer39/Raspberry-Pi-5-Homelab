@@ -35,6 +35,7 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - WEBUI_PORT=8068
+      - DOCKER_MODS=ghcr.io/vuetorrent/vuetorrent-lsio-mod:latest
     volumes:
       - /srv/containers/configs/qbittorrent:/config
       - /srv/mediahub/media:/media
@@ -100,6 +101,9 @@ services:
     user: ${PUID}:${PGID}
     environment:
       - INIT_ASSETS=1
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
     volumes:
       - /srv/containers/configs/homer/assets:/www/assets
       - /srv/containers/configs/homer:/www/config.yml
