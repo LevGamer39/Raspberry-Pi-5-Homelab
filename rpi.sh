@@ -385,7 +385,7 @@ install_packages_debian() {
     apt update && apt upgrade -y
     
     echo -e "${YELLOW}⏳ Установка базовых пакетов...${NC}"
-    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential wget util-linux-extra
+    apt install -y git python3 python3-pip flashrom i2c-tools sudo nginx rsync build-essential wget util-linux-extra libarchive-tools
     
     install_docker_debian
     
