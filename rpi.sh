@@ -521,7 +521,7 @@ add_service_users() {
         fi
     fi
 	
-    if ! id "$DOCKER_USER" &>/dev/null; then
+    if ! id "$ASF_USER" &>/dev/null; then
         useradd -r -s /usr/sbin/nologin "$ASF_USER"
         echo -e "${GREEN}✅ Служебный пользователь $ASF_USER создан${NC}"
     else
