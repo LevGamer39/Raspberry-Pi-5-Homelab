@@ -14,6 +14,7 @@ BACKUP_GITHUB_TOKEN=""
 
 DOCKER_USER="mediauser"
 STEAM_USER="steam"
+ASF_USER="asf"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -518,6 +519,13 @@ add_service_users() {
         else
             echo -e "${YELLOW}⚠️  Служебный пользователь $STEAM_USER уже существует${NC}"
         fi
+    fi
+	
+    if ! id "$DOCKER_USER" &>/dev/null; then
+        useradd -r -s /usr/sbin/nologin "$ASF_USER"
+        echo -e "${GREEN}✅ Служебный пользователь $ASF_USER создан${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Служебный пользователь $ASF_USER уже существует${NC}"
     fi
     
     if getent group docker >/dev/null; then
